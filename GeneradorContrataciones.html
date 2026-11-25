@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de datos · Contrataciones GVA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root{
+    --ink:#1D1B1A; --ink-soft:#5C544F; --paper:#F6F2EC; --card:#FFFDF9;
+    --red:#BB2B09; --red-deep:#8A2007; --red-tint:#FBEAE4; --red-tint-border:#F0C4B6;
+    --green:#2F6B4F; --line:#E3D9CF; --shadow:0 1px 2px rgba(29,27,26,.06),0 8px 24px rgba(29,27,26,.08);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;padding:2.4rem 1.4rem 5rem;}
+  h1{font-family:'Source Serif 4',serif;font-size:1.7rem;margin:0 0 0.3rem;}
+  .lead{color:var(--ink-soft);font-size:0.92rem;line-height:1.55;margin:0 0 1.4rem;}
+  .warn{
+    background:var(--red-tint);border:1px solid var(--red-tint-border);border-radius:8px;
+    padding:0.9rem 1.1rem;font-size:0.85rem;line-height:1.55;color:var(--red-deep);margin-bottom:1.8rem;
+  }
+  .warn b{display:block;margin-bottom:0.3rem;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:.06em;text-transform:uppercase;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.3rem 1.4rem 1.5rem;box-shadow:var(--shadow);margin-bottom:1.4rem;}
+  .card h2{font-family:'Source Serif 4',serif;font-size:1.05rem;margin:0 0 0.9rem;display:flex;align-items:center;gap:0.5rem;}
+  .step-num{
+    display:inline-flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;
+    border-radius:50%;background:var(--red);color:#fff;font-size:0.78rem;font-family:'IBM Plex Mono',monospace;flex-shrink:0;
+  }
+  .field{margin-bottom:0.9rem;}
+  .field label{display:block;font-size:0.76rem;font-weight:600;color:var(--ink-soft);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:.02em;}
+  input[type=file], input[type=text]{
+    width:100%;font-family:'Inter',sans-serif;font-size:0.88rem;padding:0.5rem 0.6rem;
+    border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+  }
+  select{width:100%;font-family:'Inter',sans-serif;font-size:0.88rem;padding:0.45rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);}
+  .hint{font-size:0.76rem;color:#7C8B85;margin-top:0.3rem;}
+  button{
+    font-family:'Inter',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;
+    background:var(--red);color:#fff;border:none;border-radius:7px;padding:0.75rem 1.2rem;
+  }
+  button.secondary{background:#fff;color:var(--red-deep);border:1px solid var(--red);}
+  .actions{display:flex;gap:0.7rem;flex-wrap:wrap;margin-top:0.4rem;}
+  #destino, #resumen{display:none;}
+  table.summary{width:100%;border-collapse:collapse;font-size:0.85rem;margin-top:0.8rem;}
+  table.summary th, table.summary td{text-align:left;padding:0.4rem 0.5rem;border-bottom:1px solid var(--line);}
+  table.summary td.n{font-family:'IBM Plex Mono',monospace;text-align:right;}
+  table.summary td.verde{color:var(--green);font-weight:600;}
+  .dest-row{display:grid;grid-template-columns:1.6fr 1.3fr 1fr;gap:0.6rem;align-items:end;margin-bottom:0.6rem;}
+  .dest-row .archivo{font-size:0.82rem;font-weight:600;padding-bottom:0.5rem;font-family:'IBM Plex Mono',monospace;}
+  .dest-head{display:grid;grid-template-columns:1.6fr 1.3fr 1fr;gap:0.6rem;font-size:0.68rem;text-transform:uppercase;color:var(--ink-soft);margin-bottom:0.4rem;letter-spacing:.03em;}
+  #log{font-family:'IBM Plex Mono',monospace;font-size:0.78rem;white-space:pre-wrap;background:#241411;color:#DCC3B9;padding:0.9rem 1rem;border-radius:8px;margin-top:1rem;display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Generador de datos — Contrataciones</h1>
+  <p class="lead">Mezcla los archivos descargados con el Extractor Contrataciones en tu Excel maestro mensual: añade solo las filas nuevas, mantiene las hojas por categoría y deja el libro listo para generar <code>index.html</code>.</p>
+
+  <div class="warn">
+    <b>Cómo funciona la mezcla</b>
+    Cada hoja que tenga columnas Nombre/Categoría/Departamento/Inicio se reconoce como hoja de datos; el resto (Observaciones, notas, portadas) se conserva tal cual. Una fila es "nueva" solo si no existe ya en su hoja, comparando los 10 campos completos; por eso puedes pasar siempre el listado entero de los últimos meses sin duplicar nada.
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">1</span>Excel maestro del mes anterior</h2>
+    <div class="field">
+      <label for="fileMaster">Contrataciones.xlsx actual (opcional: si lo dejas vacío se crea un libro nuevo)</label>
+      <input type="file" id="fileMaster" accept=".xls,.xlsx">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span>Archivos del Extractor Contrataciones</h2>
+    <div class="field">
+      <label for="fileXls">Todos los archivos descargados (selecciónalos juntos)</label>
+      <input type="file" id="fileXls" accept=".xls,.xlsx,.csv" multiple>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="btnLeer">Leer archivos</button>
+  </div>
+
+  <div id="destino" class="card">
+    <h2><span class="step-num">3</span>Hoja de destino de cada categoría</h2>
+    <p class="hint" style="margin-top:-0.4rem;margin-bottom:1rem;">Asocia cada archivo con su hoja del Excel (se recuerda para la próxima vez). Elige "Nueva hoja…" para categorías que no estén todavía en el maestro.</p>
+    <div class="dest-head"><div>Archivo · categoría extraída</div><div>Hoja destino</div><div>Nombre si es nueva</div></div>
+    <div id="destRows"></div>
+    <div class="actions">
+      <button id="btnGenerar">Generar Excel actualizado</button>
+    </div>
+  </div>
+
+  <div id="resumen" class="card">
+    <h2>Resultado</h2>
+    <table class="summary" id="tablaResumen"></table>
+    <div class="actions">
+      <button id="btnDescargar">Descargar Contrataciones.xlsx</button>
+      <button class="secondary" id="btnLog">Ver detalle técnico</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script id="nucleo">
+function normalizarCab(s){
+  return String(s == null ? '' : s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.]/g,'').replace(/\s+/g,'');
+}
+const HDR = {'nombre':'nombre','turno':'turno','categoria':'cat','departamento':'dpto','posicion':'pos','posision':'pos','finicio':'ini','inicio':'ini','ffin':'fin','fin':'fin','fechainicio':'ini','fechafin':'fin','tnom':'tnom','b':'b','jor':'jor','jornada':'jor'};
+const CANON = ['nombre','turno','cat','dpto','pos','ini','fin','tnom','b','jor'];
+const CANON_LABELS = ['Nombre','Turno','Categoría','Departamento','Posición','Inicio','Fin','TNom','B','Jor'];
+const TURNO = {'O':'O','ORDINARIO':'O','P':'P','PROMOCIONINTERNATEMPORAL':'P','PROMOCIONINTERNATIEMPO':'P'};
+
+function codeVal(v){
+  var s = String(v == null ? '' : v).replace(/\s+/g,' ').trim();
+  return s.replace(/\.+$/,'').toUpperCase();
+}
+function turnoVal(v){
+  var k = normalizarCab(v);
+  return TURNO[k] || codeVal(v);
+}
+function posVal(v){
+  if (typeof v === 'number' && isFinite(v)) return Math.round(v);
+  var s = String(v == null ? '' : v).replace(/\s+/g,'').trim();
+  return /^\d+$/.test(s) ? parseInt(s,10) : null;
+}
+function parseFecha(v){
+  if (v instanceof Date) return isNaN(v) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  var t = String(v == null ? '' : v).trim();
+  var m = t.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) { var y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2]-1, +m[1]); }
+  return null;
+}
+function isoDia(d){
+  return d instanceof Date && !isNaN(d) ? d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate() : '';
+}
+function clave(s){
+  return String(s == null ? '' : s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+}
+function nombreHojaValido(s){
+  var n = String(s == null ? '' : s).replace(/[\[\]:*?\/\\]/g,' ').replace(/\s+/g,' ').trim();
+  return n.slice(0,31);
+}
+function mapearCabecera(head){
+  var col = {};
+  head.forEach(function(h,i){ var f = HDR[normalizarCab(h)]; if (f && col[f] === undefined) col[f] = i; });
+  return col;
+}
+function celda(r, col, f){ return col[f] !== undefined && col[f] < r.length ? r[col[f]] : null; }
+
+function esHojaDatos(head){
+  var col = mapearCabecera(head);
+  return col.nombre !== undefined && col.cat !== undefined && col.dpto !== undefined && col.ini !== undefined;
+}
+
+function leerHojas(wb){
+  var hojas = [];
+  wb.SheetNames.forEach(function(sn){
+    var mat = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:true, defval:'', cellDates:true});
+    if (!mat.length) { hojas.push({tipo:'nota', nombre:sn, filas:[]}); return; }
+    var head = mat[0].map(function(h){ return String(h == null ? '' : h).trim(); });
+    if (!esHojaDatos(head)) { hojas.push({tipo:'nota', nombre:sn, filas:mat}); return; }
+    var col = mapearCabecera(head);
+    var catHoja = '';
+    for (var i = 1; i < mat.length; i++){
+      var c = celda(mat[i], col, 'cat');
+      if (c != null && String(c).trim().length > 1) { catHoja = String(c).trim(); break; }
+    }
+    var filas = mat.slice(1).filter(function(r){ return r && r.some(function(v){ return v !== '' && v != null; }); });
+    hojas.push({tipo:'datos', nombre:sn, head:head, col:col, filas:filas, catHoja:catHoja, firmas:null, adds:0, dups:0});
+  });
+  return hojas;
+}
+
+function gruposDeArchivo(wb, nombreArchivo){
+  var grupos = {};
+  wb.SheetNames.forEach(function(sn){
+    var mat = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:true, defval:'', cellDates:true});
+    if (mat.length < 2) return;
+    var head = mat[0].map(function(h){ return String(h == null ? '' : h).trim(); });
+    if (!esHojaDatos(head)) return;
+    var col = mapearCabecera(head);
+    for (var i = 1; i < mat.length; i++){
+      var r = mat[i];
+      var nombre = String(celda(r, col, 'nombre') || '').replace(/\s+/g,' ').trim();
+      if (!nombre) continue;
+      var ini = parseFecha(celda(r, col, 'ini'));
+      if (!ini) continue;
+      var fila = {
+        nombre: nombre,
+        turno: turnoVal(celda(r, col, 'turno')),
+        cat: String(celda(r, col, 'cat') || '').replace(/\s+/g,' ').trim(),
+        dpto: String(celda(r, col, 'dpto') || '').replace(/\s+/g,' ').trim(),
+        pos: posVal(celda(r, col, 'pos')),
+        ini: ini,
+        fin: parseFecha(celda(r, col, 'fin')),
+        tnom: codeVal(celda(r, col, 'tnom')),
+        b: codeVal(celda(r, col, 'b')),
+        jor: codeVal(celda(r, col, 'jor'))
+      };
+      var k = clave(fila.cat);
+      if (!grupos[k]) grupos[k] = {clave:k, cat:fila.cat, archivo:nombreArchivo, filas:[], firmas:null, dups:0};
+      grupos[k].filas.push(fila);
+    }
+  });
+  return Object.keys(grupos).map(function(k){ return grupos[k]; });
+}
+
+function firmarFila(f){
+  return [f.nombre, f.turno, f.cat, f.dpto, f.pos == null ? '' : String(f.pos), isoDia(f.ini), isoDia(f.fin), f.tnom, f.b, f.jor].join('§');
+}
+function firmarExistente(r, col){
+  var f = {
+    nombre: String(celda(r, col, 'nombre') || '').replace(/\s+/g,' ').trim(),
+    turno: turnoVal(celda(r, col, 'turno')),
+    cat: String(celda(r, col, 'cat') || '').replace(/\s+/g,' ').trim(),
+    dpto: String(celda(r, col, 'dpto') || '').replace(/\s+/g,' ').trim(),
+    pos: posVal(celda(r, col, 'pos')),
+    ini: parseFecha(celda(r, col, 'ini')),
+    fin: parseFecha(celda(r, col, 'fin')),
+    tnom: codeVal(celda(r, col, 'tnom')),
+    b: codeVal(celda(r, col, 'b')),
+    jor: codeVal(celda(r, col, 'jor'))
+  };
+  return firmarFila(f);
+}
+
+function sugerirDestino(catText, hojas){
+  var k = clave(catText);
+  for (var i = 0; i < hojas.length; i++){ var h = hojas[i]; if (h.tipo === 'datos' && clave(h.catHoja) === k) return h.nombre; }
+  return null;
+}
+
+function agregarFilas(hoja, grupo){
+  if (!hoja.firmas) { hoja.firmas = new Set(); hoja.filas.forEach(function(r){ hoja.firmas.add(firmarExistente(r, hoja.col)); }); }
+  var anadidas = 0;
+  grupo.filas.forEach(function(fila){
+    var sig = firmarFila(fila);
+    if (hoja.firmas.has(sig)) { grupo.dups++; hoja.dups++; return; }
+    hoja.firmas.add(sig);
+    var a = new Array(hoja.head.length).fill('');
+    CANON.forEach(function(f){
+      if (hoja.col[f] !== undefined && hoja.col[f] < hoja.head.length){
+        var v = fila[f];
+        if ((f === 'ini' || f === 'fin') && !v) return;
+        a[hoja.col[f]] = v;
+      }
+    });
+    hoja.filas.push(a);
+    hoja.adds++;
+    anadidas++;
+  });
+  return anadidas;
+}
+
+function construir(hojas, hojasNuevas){
+  var wb = XLSX.utils.book_new();
+  var usados = new Set();
+  var poner = function(nombre, filas2d){
+    var n = nombreHojaValido(nombre) || 'Hoja';
+    var base = n, x = 1;
+    while (usados.has(n)) { x++; n = (base.slice(0, 31 - String(x).length - 1) + ' ' + x); }
+    usados.add(n);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filas2d), n);
+    return n;
+  };
+  hojas.concat(hojasNuevas).forEach(function(h){
+    if (h.tipo === 'nota') { poner(h.nombre, h.filas.length ? h.filas : [['']]); return; }
+    var filas2d = h.filas.map(function(r){
+      var a = r.slice(0, h.head.length);
+      while (a.length < h.head.length) a.push('');
+      return a;
+    });
+    poner(h.nombre, [h.head].concat(filas2d));
+  });
+  return wb;
+}
+</script>
+
+<script>
+const STORAGE_KEY = 'contrataciones_destino_v1';
+const $ = id => document.getElementById(id);
+
+function loadSaved(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }catch(e){ return {}; } }
+function saveSaved(map){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); }catch(e){} }
+
+function readFileAsArrayBuffer(file){
+  return new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(r.result);
+    r.onerror = ()=> rej(new Error('No se pudo leer el archivo'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+let maestroHojas = [];
+let grupos = [];
+let hojasNuevas = [];
+let lastResult = null;
+
+$('btnLeer').addEventListener('click', async ()=>{
+  try{
+    const files = Array.from($('fileXls').files).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+    if(!files.length){ alert('Faltan los archivos del Extractor.'); return; }
+
+    maestroHojas = [];
+    const fm = $('fileMaster').files[0];
+    if(fm){
+      const wbm = XLSX.read(await readFileAsArrayBuffer(fm), {type:'array', cellDates:true});
+      maestroHojas = leerHojas(wbm);
+    }
+
+    grupos = [];
+    for(const f of files){
+      const wb = XLSX.read(await readFileAsArrayBuffer(f), {type:'array', cellDates:true});
+      grupos.push(...gruposDeArchivo(wb, f.name));
+    }
+
+    if(!grupos.length){
+      alert('Ningún archivo tiene filas reconocibles (Nombre/Categoría/Departamento/Inicio). Revisa que sean del Extractor Contrataciones.');
+      return;
+    }
+
+    const datos = maestroHojas.filter(h=>h.tipo==='datos');
+    const guardados = loadSaved();
+    const nombresDatos = datos.map(h=>h.nombre);
+
+    const box = $('destRows');
+    box.innerHTML = '';
+    grupos.forEach(g=>{
+      const prev = guardados[g.clave];
+      let destino = (prev && (nombresDatos.includes(prev) || prev === '__NUEVA__')) ? prev : null;
+      if(!destino) destino = sugerirDestino(g.cat, datos) || '__NUEVA__';
+
+      const row = document.createElement('div');
+      row.className = 'dest-row';
+      const sel = document.createElement('select');
+      sel.setAttribute('data-clave', g.clave);
+      sel.innerHTML = '<option value="__NUEVA__">— Nueva hoja —</option>' +
+        nombresDatos.map(n=>'<option value="'+n.replace(/"/g,'&quot;')+'">'+n.replace(/</g,'&lt;')+'</option>').join('');
+      sel.value = destino;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.setAttribute('data-nombre', g.clave);
+      inp.value = nombreHojaValido(g.cat);
+      const lbl = document.createElement('div');
+      lbl.className = 'archivo';
+      lbl.innerHTML = g.archivo.replace(/</g,'&lt;') + '<br><span style="font-weight:400;color:#7C8B85">' + g.cat.replace(/</g,'&lt;') + ' (' + g.filas.length + ' filas)</span>';
+      row.appendChild(lbl); row.appendChild(sel); row.appendChild(inp);
+      box.appendChild(row);
+    });
+
+    $('destino').style.display = 'block';
+    $('resumen').style.display = 'none';
+    $('destino').scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(err){
+    alert('Error: ' + err.message);
+    console.error(err);
+  }
+});
+
+$('btnGenerar').addEventListener('click', ()=>{
+  try{
+    const datos = maestroHojas.filter(h=>h.tipo==='datos');
+    const porNombre = new Map(datos.map(h=>[h.nombre, h]));
+    const guardados = loadSaved();
+
+    hojasNuevas = [];
+    const nuevoPorNombre = new Map();
+
+    document.querySelectorAll('#destRows .dest-row').forEach(row=>{
+      const sel = row.querySelector('select'), inp = row.querySelector('input');
+      const clave = sel.getAttribute('data-clave');
+      guardados[clave] = sel.value;
+      saveSaved(guardados);
+    });
+
+    let totalNuevas = 0, totalDups = 0, sinAsignar = 0;
+    grupos.forEach(g=>{
+      const dest = guardados[g.clave];
+      let nombre = '';
+      if(dest === '__NUEVA__'){
+        const row = [...document.querySelectorAll('#destRows .dest-row')].find(r=>r.querySelector('select').getAttribute('data-clave')===g.clave);
+        nombre = row ? nombreHojaValido(row.querySelector('input').value) : nombreHojaValido(g.cat);
+      } else if(dest && porNombre.has(dest)){
+        nombre = dest;
+      }
+      if(!nombre){ sinAsignar += g.filas.length; return; }
+      let hoja = porNombre.get(nombre);
+      if(!hoja){
+        hoja = nuevoPorNombre.get(nombre);
+        if(!hoja){
+          hoja = {tipo:'datos', nombre:nombre, head:CANON_LABELS.slice(),
+            col:{nombre:0,turno:1,cat:2,dpto:3,pos:4,ini:5,fin:6,tnom:7,b:8,jor:9},
+            filas:[], firmas:new Set(), adds:0, dups:0, catHoja:g.cat};
+          nuevoPorNombre.set(nombre, hoja);
+          hojasNuevas.push(hoja);
+        }
+      }
+      totalNuevas += agregarFilas(hoja, g);
+      totalDups += g.dups;
+    });
+
+    const wbOut = construir(maestroHojas, hojasNuevas);
+    lastResult = {wbOut, maestroHojas, hojasNuevas, totalNuevas, totalDups, sinAsignar};
+
+    const tbl = $('tablaResumen');
+    let rowsHtml = '<tr><th>Hoja</th><th style="text-align:right">Antes</th><th style="text-align:right">Nuevas</th><th style="text-align:right">Duplicadas</th><th style="text-align:right">Total</th></tr>';
+    maestroHojas.forEach(h=>{
+      if(h.tipo==='nota'){ rowsHtml += '<tr><td>' + h.nombre.replace(/</g,'&lt;') + ' (conservada tal cual)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>'; return; }
+      rowsHtml += '<tr><td>' + h.nombre.replace(/</g,'&lt;') + '</td><td class="n">' + (h.filas.length - h.adds) + '</td><td class="n verde">' + h.adds + '</td><td class="n">' + h.dups + '</td><td class="n">' + h.filas.length + '</td></tr>';
+    });
+    hojasNuevas.forEach(h=>{
+      rowsHtml += '<tr><td>Nueva: ' + h.nombre.replace(/</g,'&lt;') + '</td><td class="n">—</td><td class="n verde">' + h.adds + '</td><td class="n">' + h.dups + '</td><td class="n">' + h.filas.length + '</td></tr>';
+    });
+    tbl.innerHTML = rowsHtml;
+
+    const log = [];
+    log.push('Filas nuevas añadidas: ' + totalNuevas);
+    log.push('Filas repetidas ignoradas: ' + totalDups);
+    if(sinAsignar) log.push('Filas sin hoja destino: ' + sinAsignar);
+    maestroHojas.filter(h=>h.tipo==='nota').forEach(h=> log.push('Hoja conservada: ' + h.nombre));
+    $('log').textContent = log.join('\n');
+    $('log').style.display = 'none';
+
+    $('resumen').style.display = 'block';
+    $('resumen').scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(err){
+    alert('Error: ' + err.message);
+    console.error(err);
+  }
+});
+
+$('btnDescargar').addEventListener('click', ()=>{
+  if(!lastResult) return;
+  XLSX.writeFile(lastResult.wbOut, 'Contrataciones.xlsx');
+});
+
+$('btnLog').addEventListener('click', ()=>{
+  const logEl = $('log');
+  logEl.style.display = logEl.style.display === 'none' ? 'block' : 'none';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Marcador Contrataciones SanGVA</title>
+<body style="font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;line-height:1.5">
+<h2>Marcador Contrataciones</h2>
+<p>Arrastra este enlace a tu barra de marcadores:</p>
+<p><a id="marcador" href="#" onclick="return false" style="display:inline-block;padding:10px 16px;background:rgb(29,27,26);color:rgb(246,242,236);border-radius:8px;text-decoration:none">Extractor Contrataciones</a></p>
+<p>Cómo usarlo:</p>
+<ol>
+  <li>Abre la pantalla <b>Contratados por categoría</b> de SanGVA (btt-consulta).</li>
+  <li>Elige la <b>CATEGORÍA</b> en el desplegable (no hace falta elegir turno ni departamento: el listado los trae todos).</li>
+  <li>Pulsa el marcador. Pedirá el listado y recorrerá solo todos los rangos de paginación. Si sale el captcha, resuélvelo y pulsa <b>Obtener Listado</b>.</li>
+  <li>Al terminar descarga <code>CATEGORIA.xlsx</code> con las columnas Nombre/Turno/Categoría/Departamento/Posición/F.Inicio/F.Fin/TNom/B/Jor.</li>
+  <li>Repite con cada categoría y mezcla los archivos con <b>GeneradorContrataciones.html</b>.</li>
+</ol>
+<p>Si prefieres crearlo a mano, copia el texto de abajo en la URL de un marcador nuevo.</p>
+<textarea readonly rows="8" style="width:100%" onclick="this.select()" id="codigo"></textarea>
+<script id="fuente" type="text/plain">
+(async () => {
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const aviso = document.createElement("div");
+  aviso.style.cssText = "position:fixed;z-index:2147483647;right:16px;bottom:16px;max-width:360px;padding:14px 16px;border-radius:8px;background:rgb(29,27,26);color:rgb(246,242,236);font:13px/1.45 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35)";
+  aviso.textContent = "Extractor Contrataciones iniciado...";
+  (document.body || document.documentElement).appendChild(aviso);
+  const decir = (t) => { aviso.textContent = t; console.log("[Extractor Contrataciones] " + t); };
+  const limpiar = (txt) => String(txt == null ? "" : txt).replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const normalizar = (t) => limpiar(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const esRango = (t) => /^\s*\d+\s*[-\u2013\u2014a]\s*\d+\s*$/.test(String(t));
+  const esSelectorRangos = (s) => [...s.options].some((o) => esRango(o.text));
+  const visible = (el) => Boolean(el && el.getClientRects().length && el.ownerDocument.defaultView.getComputedStyle(el).visibility !== "hidden");
+  const documentos = () => { const docs = [document]; document.querySelectorAll("iframe").forEach((f) => { try { if (f.contentDocument) docs.push(f.contentDocument); } catch (e) {} }); return docs; };
+  const mejorTabla = () => { let best = null, max = 1; documentos().forEach((d) => { d.querySelectorAll("table").forEach((t) => { const n = t.querySelectorAll("tr").length; if (n > max) { max = n; best = t; } }); }); return best; };
+  const soloEtiquetas = (celdas) => celdas.some((c) => c !== "") && celdas.every((c) => c === "" || /^[^:]{1,30}:\s*$/.test(c));
+  const vaciarEtiquetaSinValor = (txt) => /^\s*(categor[ií]a|departamento):\s*$/i.test(txt) ? "" : txt;
+  const leerTabla = () => { const t = mejorTabla(); if (!t) return []; const filas = []; t.querySelectorAll("tr").forEach((tr) => { const celdas = [...tr.querySelectorAll("th,td")].map((c) => vaciarEtiquetaSinValor(limpiar(c.innerText || c.textContent))); if (!celdas.some((c) => c !== "")) return; if (soloEtiquetas(celdas)) return; filas.push(celdas); }); return filas; };
+  const huella = () => leerTabla().map((f) => f.join("|")).join("~").slice(0, 600);
+  const marcoAjeno = () => { let url = null; document.querySelectorAll("iframe").forEach((f) => { let ajeno = false; try { if (!f.contentDocument) ajeno = true; } catch (e) { ajeno = true; } if (ajeno && !url && f.src && /^https?:/.test(f.src)) url = f.src; if (ajeno && !url) url = ""; }); return url; };
+  const textoElegido = (s) => { const o = s.options[s.selectedIndex]; if (!o) return ""; const t = limpiar(o.text); return t && !/^seleccion|^todo|^elige/i.test(t) ? t : ""; };
+  const buscarControl = (clave) => { for (const d of documentos()) { for (const s of d.querySelectorAll("select")) { if (esSelectorRangos(s)) continue; const widget = s.closest(".ui-selectonemenu"); if (!visible(widget || s)) continue; const foco = widget && d.getElementById(widget.id + "_focus"); const etiqueta = [...d.querySelectorAll("label[for]")].find((l) => l.htmlFor === s.id || (foco && l.htmlFor === foco.id)); const k = normalizar(s.getAttribute("data-p-label") || (etiqueta && etiqueta.textContent) || "").replace(/[^a-z]/g, ""); if (k === clave) return { d: d, s: s, widget: widget }; } } return null; };
+  const botonObtener = () => { for (const d of documentos()) { const b = [...d.querySelectorAll("button, input[type=submit], input[type=button], a")].find((x) => /obtener\s+listado/i.test(limpiar(x.innerText || x.value || x.textContent))); if (b) return b; } return null; };
+  const esperarListado = async (antes) => { for (;;) { for (let k = 0; k < 90; k++) { await esperar(1000); const ahora = huella(); if (leerTabla().length >= 2 && ahora && ahora !== antes) return true; } if (!window.confirm("Todavia no aparece el listado. Aceptar = seguir esperando (resuelve el captcha y pulsa Obtener Listado si hace falta). Cancelar = parar.")) return false; } };
+  const nombreSeguro = (t) => limpiar(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_").slice(0, 60);
+  const cargarXLSX = () => new Promise((res) => { if (typeof window.XLSX !== "undefined") { res(true); return; } const sc = document.createElement("script"); sc.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"; sc.onload = () => res(true); sc.onerror = () => res(false); document.head.appendChild(sc); });
+  const descargar = (filas, base) => { try { if (typeof window.XLSX === "undefined") throw new Error("sin XLSX"); const hoja = window.XLSX.utils.aoa_to_sheet(filas); const libro = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(libro, hoja, "Listado"); window.XLSX.writeFile(libro, base + ".xlsx"); return base + ".xlsx"; } catch (e) { const celda = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; const csv = "\uFEFF" + filas.map((f) => f.map(celda).join(";")).join("\r\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = base + ".csv"; document.body.appendChild(a); a.click(); a.remove(); return base + ".csv"; } };
+  const extraerListado = async (categoria) => {
+    let selRangos = null;
+    documentos().forEach((d) => { d.querySelectorAll("select").forEach((s) => { if (!selRangos && esSelectorRangos(s)) selRangos = s; }); });
+    const rangos = selRangos ? [...selRangos.options].filter((o) => esRango(o.text)).map((o) => ({ val: o.value, txt: o.text.trim() })) : [{ val: null, txt: "unico" }];
+    const todo = [];
+    let cabecera = null;
+    for (let i = 0; i < rangos.length; i++) {
+      const r = rangos[i];
+      decir(categoria + ": rango " + r.txt + " (" + (i + 1) + "/" + rangos.length + ")...");
+      if (selRangos && selRangos.value !== r.val) {
+        const antes = huella();
+        selRangos.value = r.val;
+        if (typeof selRangos.onchange === "function") { try { selRangos.onchange(); } catch (e) {} }
+        selRangos.dispatchEvent(new Event("input", { bubbles: true }));
+        selRangos.dispatchEvent(new Event("change", { bubbles: true }));
+        for (let k = 0; k < 45; k++) { await esperar(1000); const ahora = huella(); if (ahora && ahora !== antes) break; }
+      }
+      const filas = leerTabla();
+      if (filas.length < 2) continue;
+      if (!cabecera) cabecera = filas[0];
+      filas.slice(1).forEach((f) => todo.push(f));
+      await esperar(600);
+    }
+    if (!todo.length) return 0;
+    descargar([cabecera, ...todo], nombreSeguro(categoria));
+    return todo.length;
+  };
+  const ctlCat = buscarControl("categoria");
+  if (!ctlCat) {
+    const marco = marcoAjeno();
+    if (marco) { decir("El formulario esta dentro de un recuadro y no puedo leerlo. Te llevo al formulario en esta misma pestana: elige la categoria y vuelve a pulsar el marcador."); setTimeout(() => { window.location.href = marco; }, 3500); return; }
+    decir("No encuentro el formulario de contrataciones. Abre la pantalla de Contratados por categoria y vuelve a pulsar el marcador.");
+    return;
+  }
+  const categoria = textoElegido(ctlCat.s);
+  if (!categoria) { decir("Elige primero la CATEGORIA y vuelve a pulsar el marcador."); return; }
+  await cargarXLSX();
+  decir(categoria + ": pidiendo el listado. Si sale el captcha, resuelvelo y pulsa Obtener Listado.");
+  const antes = huella();
+  const boton = botonObtener();
+  if (!boton) { decir("No encuentro el boton Obtener Listado. Comprueba que estas en la pantalla correcta."); return; }
+  boton.click();
+  const ok = await esperarListado(antes);
+  if (!ok) { decir("Cancelado."); return; }
+  const n = await extraerListado(categoria);
+  decir("Terminado. " + categoria + ": " + n + " contrataciones descargadas. Repite con la siguiente categoria.");
+  setTimeout(() => aviso.remove(), 60000);
+})();
+</script>
+<script>
+  let src = document.getElementById('fuente').textContent.replace(/^\n+/, '').replace(/\n+$/, '');
+  document.getElementById('marcador').href = 'javascript:' + encodeURIComponent(src);
+  document.getElementById('codigo').value = src;
+</script>
+</body></html>
