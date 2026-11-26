@@ -30,11 +30,10 @@
   }
   .field{margin-bottom:0.9rem;}
   .field label{display:block;font-size:0.76rem;font-weight:600;color:var(--ink-soft);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:.02em;}
-  input[type=file], input[type=text]{
+  input[type=file]{
     width:100%;font-family:'Inter',sans-serif;font-size:0.88rem;padding:0.5rem 0.6rem;
     border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
   }
-  select{width:100%;font-family:'Inter',sans-serif;font-size:0.88rem;padding:0.45rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);}
   .hint{font-size:0.76rem;color:#7C8B85;margin-top:0.3rem;}
   button{
     font-family:'Inter',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;
@@ -42,31 +41,28 @@
   }
   button.secondary{background:#fff;color:var(--red-deep);border:1px solid var(--red);}
   .actions{display:flex;gap:0.7rem;flex-wrap:wrap;margin-top:0.4rem;}
-  #destino, #resumen{display:none;}
+  #resumen{display:none;}
   table.summary{width:100%;border-collapse:collapse;font-size:0.85rem;margin-top:0.8rem;}
   table.summary th, table.summary td{text-align:left;padding:0.4rem 0.5rem;border-bottom:1px solid var(--line);}
   table.summary td.n{font-family:'IBM Plex Mono',monospace;text-align:right;}
   table.summary td.verde{color:var(--green);font-weight:600;}
-  .dest-row{display:grid;grid-template-columns:1.6fr 1.3fr 1fr;gap:0.6rem;align-items:end;margin-bottom:0.6rem;}
-  .dest-row .archivo{font-size:0.82rem;font-weight:600;padding-bottom:0.5rem;font-family:'IBM Plex Mono',monospace;}
-  .dest-head{display:grid;grid-template-columns:1.6fr 1.3fr 1fr;gap:0.6rem;font-size:0.68rem;text-transform:uppercase;color:var(--ink-soft);margin-bottom:0.4rem;letter-spacing:.03em;}
   #log{font-family:'IBM Plex Mono',monospace;font-size:0.78rem;white-space:pre-wrap;background:#241411;color:#DCC3B9;padding:0.9rem 1rem;border-radius:8px;margin-top:1rem;display:none;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Generador de datos — Contrataciones</h1>
-  <p class="lead">Mezcla los archivos descargados con el Extractor Contrataciones en tu Excel maestro mensual: añade solo las filas nuevas, mantiene las hojas por categoría y deja el libro listo para generar <code>index.html</code>.</p>
+  <p class="lead">Une los archivos descargados con el Extractor Contrataciones en tu Excel maestro: una única hoja <code>Datos</code> con todas las categorías, solo filas nuevas, sin duplicados y listo para generar <code>index.html</code>.</p>
 
   <div class="warn">
-    <b>Cómo funciona la mezcla</b>
-    Cada hoja que tenga columnas Nombre/Categoría/Departamento/Inicio se reconoce como hoja de datos; el resto (Observaciones, notas, portadas) se conserva tal cual. Una fila es "nueva" solo si no existe ya en su hoja, comparando los 10 campos completos; por eso puedes pasar siempre el listado entero de los últimos meses sin duplicar nada.
+    <b>Cómo funciona la unión</b>
+    Todo se acumula en una sola hoja "Datos"; la columna Categoría (y el "- Perfil:" que traiga pegado) distingue cada grupo. Una fila solo se añade si no existe ya con los 10 campos completos idénticos, así que puedes pasar siempre el listado entero de los últimos meses sin duplicar nada. Si tu Excel maestro todavía tiene hojas por categoría, se migran solas a la hoja "Datos".
   </div>
 
   <div class="card">
-    <h2><span class="step-num">1</span>Excel maestro del mes anterior</h2>
+    <h2><span class="step-num">1</span>Excel maestro anterior</h2>
     <div class="field">
-      <label for="fileMaster">Contrataciones.xlsx actual (opcional: si lo dejas vacío se crea un libro nuevo)</label>
+      <label for="fileMaster">Contrataciones.xlsx del mes anterior (obligatorio; si es la primera vez, usa el que quieras como punto de partida)</label>
       <input type="file" id="fileMaster" accept=".xls,.xlsx">
     </div>
   </div>
@@ -80,17 +76,7 @@
   </div>
 
   <div class="actions">
-    <button id="btnLeer">Leer archivos</button>
-  </div>
-
-  <div id="destino" class="card">
-    <h2><span class="step-num">3</span>Hoja de destino de cada categoría</h2>
-    <p class="hint" style="margin-top:-0.4rem;margin-bottom:1rem;">Asocia cada archivo con su hoja del Excel (se recuerda para la próxima vez). Elige "Nueva hoja…" para categorías que no estén todavía en el maestro.</p>
-    <div class="dest-head"><div>Archivo · categoría extraída</div><div>Hoja destino</div><div>Nombre si es nueva</div></div>
-    <div id="destRows"></div>
-    <div class="actions">
-      <button id="btnGenerar">Generar Excel actualizado</button>
-    </div>
+    <button id="btnGenerar">Generar Excel unificado</button>
   </div>
 
   <div id="resumen" class="card">
@@ -111,7 +97,7 @@ function normalizarCab(s){
 const HDR = {'nombre':'nombre','turno':'turno','categoria':'cat','departamento':'dpto','posicion':'pos','posision':'pos','finicio':'ini','inicio':'ini','ffin':'fin','fin':'fin','fechainicio':'ini','fechafin':'fin','tnom':'tnom','b':'b','jor':'jor','jornada':'jor'};
 const CANON = ['nombre','turno','cat','dpto','pos','ini','fin','tnom','b','jor'];
 const CANON_LABELS = ['Nombre','Turno','Categoría','Departamento','Posición','Inicio','Fin','TNom','B','Jor'];
-const TURNO = {'O':'O','ORDINARIO':'O','P':'P','PROMOCIONINTERNATEMPORAL':'P','PROMOCIONINTERNATIEMPO':'P'};
+const TURNO = {'O':'O','ORDINARIO':'O','P':'P','PROMOCIONINTERNATEMPORAL':'P'};
 
 function codeVal(v){
   var s = String(v == null ? '' : v).replace(/\s+/g,' ').trim();
@@ -139,10 +125,6 @@ function isoDia(d){
 function clave(s){
   return String(s == null ? '' : s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
 }
-function nombreHojaValido(s){
-  var n = String(s == null ? '' : s).replace(/[\[\]:*?\/\\]/g,' ').replace(/\s+/g,' ').trim();
-  return n.slice(0,31);
-}
 function mapearCabecera(head){
   var col = {};
   head.forEach(function(h,i){ var f = HDR[normalizarCab(h)]; if (f && col[f] === undefined) col[f] = i; });
@@ -155,6 +137,34 @@ function esHojaDatos(head){
   return col.nombre !== undefined && col.cat !== undefined && col.dpto !== undefined && col.ini !== undefined;
 }
 
+function filaDesdeFila(r, col){
+  var nombre = String(celda(r, col, 'nombre') || '').replace(/\s+/g,' ').trim();
+  var ini = parseFecha(celda(r, col, 'ini'));
+  if (!nombre || !ini) return null;
+  return {
+    nombre: nombre,
+    turno: turnoVal(celda(r, col, 'turno')),
+    cat: String(celda(r, col, 'cat') || '').replace(/\s+/g,' ').trim(),
+    dpto: String(celda(r, col, 'dpto') || '').replace(/\s+/g,' ').trim(),
+    pos: posVal(celda(r, col, 'pos')),
+    ini: ini,
+    fin: parseFecha(celda(r, col, 'fin')),
+    tnom: codeVal(celda(r, col, 'tnom')),
+    b: codeVal(celda(r, col, 'b')),
+    jor: codeVal(celda(r, col, 'jor'))
+  };
+}
+
+function firmarFila(f){
+  return [f.nombre, f.turno, f.cat, f.dpto, f.pos == null ? '' : String(f.pos), isoDia(f.ini), isoDia(f.fin), f.tnom, f.b, f.jor].join('§');
+}
+
+function hojaDatosNueva(nombre){
+  return {tipo:'datos', nombre:nombre || 'Datos', head:CANON_LABELS.slice(),
+    col:{nombre:0,turno:1,cat:2,dpto:3,pos:4,ini:5,fin:6,tnom:7,b:8,jor:9},
+    filas:[], firmas:new Set(), adds:0, dups:0};
+}
+
 function leerHojas(wb){
   var hojas = [];
   wb.SheetNames.forEach(function(sn){
@@ -163,90 +173,21 @@ function leerHojas(wb){
     var head = mat[0].map(function(h){ return String(h == null ? '' : h).trim(); });
     if (!esHojaDatos(head)) { hojas.push({tipo:'nota', nombre:sn, filas:mat}); return; }
     var col = mapearCabecera(head);
-    var catHoja = '';
-    for (var i = 1; i < mat.length; i++){
-      var c = celda(mat[i], col, 'cat');
-      if (c != null && String(c).trim().length > 1) { catHoja = String(c).trim(); break; }
-    }
-    var filas = mat.slice(1).filter(function(r){ return r && r.some(function(v){ return v !== '' && v != null; }); });
-    hojas.push({tipo:'datos', nombre:sn, head:head, col:col, filas:filas, catHoja:catHoja, firmas:null, adds:0, dups:0});
+    hojas.push({tipo:'datos', nombre:sn, head:head, col:col, filas:mat.slice(1)});
   });
   return hojas;
 }
 
-function gruposDeArchivo(wb, nombreArchivo){
-  var grupos = {};
-  wb.SheetNames.forEach(function(sn){
-    var mat = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:true, defval:'', cellDates:true});
-    if (mat.length < 2) return;
-    var head = mat[0].map(function(h){ return String(h == null ? '' : h).trim(); });
-    if (!esHojaDatos(head)) return;
-    var col = mapearCabecera(head);
-    for (var i = 1; i < mat.length; i++){
-      var r = mat[i];
-      var nombre = String(celda(r, col, 'nombre') || '').replace(/\s+/g,' ').trim();
-      if (!nombre) continue;
-      var ini = parseFecha(celda(r, col, 'ini'));
-      if (!ini) continue;
-      var fila = {
-        nombre: nombre,
-        turno: turnoVal(celda(r, col, 'turno')),
-        cat: String(celda(r, col, 'cat') || '').replace(/\s+/g,' ').trim(),
-        dpto: String(celda(r, col, 'dpto') || '').replace(/\s+/g,' ').trim(),
-        pos: posVal(celda(r, col, 'pos')),
-        ini: ini,
-        fin: parseFecha(celda(r, col, 'fin')),
-        tnom: codeVal(celda(r, col, 'tnom')),
-        b: codeVal(celda(r, col, 'b')),
-        jor: codeVal(celda(r, col, 'jor'))
-      };
-      var k = clave(fila.cat);
-      if (!grupos[k]) grupos[k] = {clave:k, cat:fila.cat, archivo:nombreArchivo, filas:[], firmas:null, dups:0};
-      grupos[k].filas.push(fila);
-    }
-  });
-  return Object.keys(grupos).map(function(k){ return grupos[k]; });
-}
-
-function firmarFila(f){
-  return [f.nombre, f.turno, f.cat, f.dpto, f.pos == null ? '' : String(f.pos), isoDia(f.ini), isoDia(f.fin), f.tnom, f.b, f.jor].join('§');
-}
-function firmarExistente(r, col){
-  var f = {
-    nombre: String(celda(r, col, 'nombre') || '').replace(/\s+/g,' ').trim(),
-    turno: turnoVal(celda(r, col, 'turno')),
-    cat: String(celda(r, col, 'cat') || '').replace(/\s+/g,' ').trim(),
-    dpto: String(celda(r, col, 'dpto') || '').replace(/\s+/g,' ').trim(),
-    pos: posVal(celda(r, col, 'pos')),
-    ini: parseFecha(celda(r, col, 'ini')),
-    fin: parseFecha(celda(r, col, 'fin')),
-    tnom: codeVal(celda(r, col, 'tnom')),
-    b: codeVal(celda(r, col, 'b')),
-    jor: codeVal(celda(r, col, 'jor'))
-  };
-  return firmarFila(f);
-}
-
-function sugerirDestino(catText, hojas){
-  var k = clave(catText);
-  for (var i = 0; i < hojas.length; i++){ var h = hojas[i]; if (h.tipo === 'datos' && clave(h.catHoja) === k) return h.nombre; }
-  return null;
-}
-
-function agregarFilas(hoja, grupo){
-  if (!hoja.firmas) { hoja.firmas = new Set(); hoja.filas.forEach(function(r){ hoja.firmas.add(firmarExistente(r, hoja.col)); }); }
+function agregarFilas(hoja, filasObj){
   var anadidas = 0;
-  grupo.filas.forEach(function(fila){
+  filasObj.forEach(function(fila){
     var sig = firmarFila(fila);
-    if (hoja.firmas.has(sig)) { grupo.dups++; hoja.dups++; return; }
+    if (hoja.firmas.has(sig)) { hoja.dups++; return; }
     hoja.firmas.add(sig);
-    var a = new Array(hoja.head.length).fill('');
-    CANON.forEach(function(f){
-      if (hoja.col[f] !== undefined && hoja.col[f] < hoja.head.length){
-        var v = fila[f];
-        if ((f === 'ini' || f === 'fin') && !v) return;
-        a[hoja.col[f]] = v;
-      }
+    var a = CANON.map(function(f){
+      var v = fila[f];
+      if ((f === 'ini' || f === 'fin') && !v) return '';
+      return v;
     });
     hoja.filas.push(a);
     hoja.adds++;
@@ -255,36 +196,37 @@ function agregarFilas(hoja, grupo){
   return anadidas;
 }
 
-function construir(hojas, hojasNuevas){
-  var wb = XLSX.utils.book_new();
-  var usados = new Set();
-  var poner = function(nombre, filas2d){
-    var n = nombreHojaValido(nombre) || 'Hoja';
-    var base = n, x = 1;
-    while (usados.has(n)) { x++; n = (base.slice(0, 31 - String(x).length - 1) + ' ' + x); }
-    usados.add(n);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filas2d), n);
-    return n;
-  };
-  hojas.concat(hojasNuevas).forEach(function(h){
-    if (h.tipo === 'nota') { poner(h.nombre, h.filas.length ? h.filas : [['']]); return; }
-    var filas2d = h.filas.map(function(r){
-      var a = r.slice(0, h.head.length);
-      while (a.length < h.head.length) a.push('');
-      return a;
+function unificar(hojas){
+  var datos = hojas.filter(function(h){ return h.tipo === 'datos'; });
+  var destino = datos.find(function(h){ return h.nombre === 'Datos'; }) || hojaDatosNueva();
+  var migradas = 0, saltadas = 0;
+  datos.forEach(function(h){
+    if (h === destino) return;
+    h.filas.forEach(function(r){
+      if (!r || !r.some(function(v){ return v !== '' && v != null; })) return;
+      var f = filaDesdeFila(r, h.col);
+      if (!f) { saltadas++; return; }
+      if (agregarFilas(destino, [f])) migradas++;
     });
-    poner(h.nombre, [h.head].concat(filas2d));
+    h.tipo = 'vacia';
+  });
+  if (datos.indexOf(destino) === -1) hojas.push(destino);
+  return {destino: destino, migradas: migradas, saltadas: saltadas};
+}
+
+function construir(hojas, destino){
+  var wb = XLSX.utils.book_new();
+  var notas = hojas.filter(function(h){ return h.tipo === 'nota'; });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([destino.head].concat(destino.filas)), destino.nombre);
+  notas.forEach(function(h){
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(h.filas.length ? h.filas : [['']]), h.nombre);
   });
   return wb;
 }
 </script>
 
 <script>
-const STORAGE_KEY = 'contrataciones_destino_v1';
 const $ = id => document.getElementById(id);
-
-function loadSaved(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }catch(e){ return {}; } }
-function saveSaved(map){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); }catch(e){} }
 
 function readFileAsArrayBuffer(file){
   return new Promise((res, rej)=>{
@@ -295,136 +237,44 @@ function readFileAsArrayBuffer(file){
   });
 }
 
-let maestroHojas = [];
-let grupos = [];
-let hojasNuevas = [];
-let lastResult = null;
+let wbResultado = null;
 
-$('btnLeer').addEventListener('click', async ()=>{
+$('btnGenerar').addEventListener('click', async ()=>{
   try{
-    const files = Array.from($('fileXls').files).sort((a,b)=>a.name.localeCompare(b.name,'es'));
-    if(!files.length){ alert('Faltan los archivos del Extractor.'); return; }
-
-    maestroHojas = [];
     const fm = $('fileMaster').files[0];
-    if(fm){
-      const wbm = XLSX.read(await readFileAsArrayBuffer(fm), {type:'array', cellDates:true});
-      maestroHojas = leerHojas(wbm);
-    }
-
-    grupos = [];
-    for(const f of files){
-      const wb = XLSX.read(await readFileAsArrayBuffer(f), {type:'array', cellDates:true});
-      grupos.push(...gruposDeArchivo(wb, f.name));
-    }
-
-    if(!grupos.length){
-      alert('Ningún archivo tiene filas reconocibles (Nombre/Categoría/Departamento/Inicio). Revisa que sean del Extractor Contrataciones.');
-      return;
-    }
-
-    const datos = maestroHojas.filter(h=>h.tipo==='datos');
-    const guardados = loadSaved();
-    const nombresDatos = datos.map(h=>h.nombre);
-
-    const box = $('destRows');
-    box.innerHTML = '';
-    grupos.forEach(g=>{
-      const prev = guardados[g.clave];
-      let destino = (prev && (nombresDatos.includes(prev) || prev === '__NUEVA__')) ? prev : null;
-      if(!destino) destino = sugerirDestino(g.cat, datos) || '__NUEVA__';
-
-      const row = document.createElement('div');
-      row.className = 'dest-row';
-      const sel = document.createElement('select');
-      sel.setAttribute('data-clave', g.clave);
-      sel.innerHTML = '<option value="__NUEVA__">— Nueva hoja —</option>' +
-        nombresDatos.map(n=>'<option value="'+n.replace(/"/g,'&quot;')+'">'+n.replace(/</g,'&lt;')+'</option>').join('');
-      sel.value = destino;
-      const inp = document.createElement('input');
-      inp.type = 'text';
-      inp.setAttribute('data-nombre', g.clave);
-      inp.value = nombreHojaValido(g.cat);
-      const lbl = document.createElement('div');
-      lbl.className = 'archivo';
-      lbl.innerHTML = g.archivo.replace(/</g,'&lt;') + '<br><span style="font-weight:400;color:#7C8B85">' + g.cat.replace(/</g,'&lt;') + ' (' + g.filas.length + ' filas)</span>';
-      row.appendChild(lbl); row.appendChild(sel); row.appendChild(inp);
-      box.appendChild(row);
-    });
-
-    $('destino').style.display = 'block';
-    $('resumen').style.display = 'none';
-    $('destino').scrollIntoView({behavior:'smooth', block:'start'});
-  }catch(err){
-    alert('Error: ' + err.message);
-    console.error(err);
-  }
-});
-
-$('btnGenerar').addEventListener('click', ()=>{
-  try{
-    const datos = maestroHojas.filter(h=>h.tipo==='datos');
-    const porNombre = new Map(datos.map(h=>[h.nombre, h]));
-    const guardados = loadSaved();
-
-    hojasNuevas = [];
-    const nuevoPorNombre = new Map();
-
-    document.querySelectorAll('#destRows .dest-row').forEach(row=>{
-      const sel = row.querySelector('select'), inp = row.querySelector('input');
-      const clave = sel.getAttribute('data-clave');
-      guardados[clave] = sel.value;
-      saveSaved(guardados);
-    });
-
-    let totalNuevas = 0, totalDups = 0, sinAsignar = 0;
-    grupos.forEach(g=>{
-      const dest = guardados[g.clave];
-      let nombre = '';
-      if(dest === '__NUEVA__'){
-        const row = [...document.querySelectorAll('#destRows .dest-row')].find(r=>r.querySelector('select').getAttribute('data-clave')===g.clave);
-        nombre = row ? nombreHojaValido(row.querySelector('input').value) : nombreHojaValido(g.cat);
-      } else if(dest && porNombre.has(dest)){
-        nombre = dest;
-      }
-      if(!nombre){ sinAsignar += g.filas.length; return; }
-      let hoja = porNombre.get(nombre);
-      if(!hoja){
-        hoja = nuevoPorNombre.get(nombre);
-        if(!hoja){
-          hoja = {tipo:'datos', nombre:nombre, head:CANON_LABELS.slice(),
-            col:{nombre:0,turno:1,cat:2,dpto:3,pos:4,ini:5,fin:6,tnom:7,b:8,jor:9},
-            filas:[], firmas:new Set(), adds:0, dups:0, catHoja:g.cat};
-          nuevoPorNombre.set(nombre, hoja);
-          hojasNuevas.push(hoja);
-        }
-      }
-      totalNuevas += agregarFilas(hoja, g);
-      totalDups += g.dups;
-    });
-
-    const wbOut = construir(maestroHojas, hojasNuevas);
-    lastResult = {wbOut, maestroHojas, hojasNuevas, totalNuevas, totalDups, sinAsignar};
-
-    const tbl = $('tablaResumen');
-    let rowsHtml = '<tr><th>Hoja</th><th style="text-align:right">Antes</th><th style="text-align:right">Nuevas</th><th style="text-align:right">Duplicadas</th><th style="text-align:right">Total</th></tr>';
-    maestroHojas.forEach(h=>{
-      if(h.tipo==='nota'){ rowsHtml += '<tr><td>' + h.nombre.replace(/</g,'&lt;') + ' (conservada tal cual)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>'; return; }
-      rowsHtml += '<tr><td>' + h.nombre.replace(/</g,'&lt;') + '</td><td class="n">' + (h.filas.length - h.adds) + '</td><td class="n verde">' + h.adds + '</td><td class="n">' + h.dups + '</td><td class="n">' + h.filas.length + '</td></tr>';
-    });
-    hojasNuevas.forEach(h=>{
-      rowsHtml += '<tr><td>Nueva: ' + h.nombre.replace(/</g,'&lt;') + '</td><td class="n">—</td><td class="n verde">' + h.adds + '</td><td class="n">' + h.dups + '</td><td class="n">' + h.filas.length + '</td></tr>';
-    });
-    tbl.innerHTML = rowsHtml;
+    if(!fm){ alert('Falta el Excel maestro del mes anterior.'); return; }
 
     const log = [];
-    log.push('Filas nuevas añadidas: ' + totalNuevas);
-    log.push('Filas repetidas ignoradas: ' + totalDups);
-    if(sinAsignar) log.push('Filas sin hoja destino: ' + sinAsignar);
-    maestroHojas.filter(h=>h.tipo==='nota').forEach(h=> log.push('Hoja conservada: ' + h.nombre));
+    const wbm = XLSX.read(await readFileAsArrayBuffer(fm), {type:'array', cellDates:true});
+    const hojas = leerHojas(wbm);
+    const res = unificar(hojas);
+    const destino = res.destino;
+    log.push('Hojas del maestro leídas: ' + hojas.length + ' (datos: ' + hojas.filter(h=>h.tipo==='datos').length + ')');
+    if(res.migradas) log.push('Filas migradas de hojas por-categoría a "Datos": ' + res.migradas);
+    if(res.saltadas) log.push('Filas vacías/inválidas ignoradas en el maestro: ' + res.saltadas);
+
+    const files = Array.from($('fileXls').files).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+    let filasPorArchivo = 0;
+    for(const f of files){
+      const wb = XLSX.read(await readFileAsArrayBuffer(f), {type:'array', cellDates:true});
+      leerHojas(wb).filter(h=>h.tipo==='datos').forEach(h=>{
+        const nuevas = h.filas.map(r=>filaDesdeFila(r, h.col)).filter(Boolean);
+        if(nuevas.length){ filasPorArchivo += agregarFilas(destino, nuevas); }
+      });
+    }
+    log.push('Archivos del extractor: ' + files.length + ' · filas nuevas añadidas: ' + filasPorArchivo);
+    log.push('Filas repetidas ignoradas en total: ' + destino.dups);
+    log.push('Hoja "Datos" final: ' + destino.filas.length + ' contratos');
+
+    wbResultado = construir(hojas);
+
+    const tbl = $('tablaResumen');
+    tbl.innerHTML = '<tr><th>Hoja</th><th style="text-align:right">Contratos</th><th style="text-align:right">Añadidas ahora</th><th style="text-align:right">Duplicadas ignoradas</th></tr>' +
+      '<tr><td>' + destino.nombre + '</td><td class="n">' + destino.filas.length + '</td><td class="n verde">' + destino.adds + '</td><td class="n">' + destino.dups + '</td></tr>' +
+      hojas.filter(h=>h.tipo==='nota').map(h=>'<tr><td>' + h.nombre.replace(/</g,'&lt;') + ' (conservada tal cual)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>').join('');
+
     $('log').textContent = log.join('\n');
     $('log').style.display = 'none';
-
     $('resumen').style.display = 'block';
     $('resumen').scrollIntoView({behavior:'smooth', block:'start'});
   }catch(err){
@@ -434,8 +284,8 @@ $('btnGenerar').addEventListener('click', ()=>{
 });
 
 $('btnDescargar').addEventListener('click', ()=>{
-  if(!lastResult) return;
-  XLSX.writeFile(lastResult.wbOut, 'Contrataciones.xlsx');
+  if(!wbResultado) return;
+  XLSX.writeFile(wbResultado, 'Contrataciones.xlsx');
 });
 
 $('btnLog').addEventListener('click', ()=>{

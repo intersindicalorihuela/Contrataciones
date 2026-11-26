@@ -20,12 +20,15 @@ marcadores. En la pantalla de SanGVA "Contratados por categoría": elige la CATE
 marcador y espera (si sale el captcha, resuélvelo y pulsa Obtener Listado). Descarga
 `CATEGORIA.xlsx` por cada categoría y cierra la tirada con la siguiente.
 
-**2. Mezclar con el Excel maestro**
+**2. Unificar con el Excel maestro**
 
 Abre `GeneradorContrataciones.html`, sube el `Contrataciones.xlsx` del mes anterior y todos los
-archivos recién descargados. Revisa las hojas de destino de cada categoría (se recuerdan de una
-vez a la siguiente) y pulsa **Generar Excel actualizado**: añade solo las filas nuevas sin
-duplicar nada y conserva las hojas de notas tal cual.
+archivos recién descargados, y pulsa **Generar Excel unificado**: añade solo las filas nuevas sin
+duplicar nada y conserva las hojas de notas. Todo queda en una única hoja `Datos` con todas las
+categorías juntas (la columna Categoría distingue cada una, y el "- Perfil:" que traiga pegado lo
+separa `convert.py`); si subes un maestro con el formato antiguo de hojas por categoría, lo migra
+a la hoja `Datos` automáticamente. La app final funciona exactamente igual con ambos formatos
+(`convert.py` ya unificaba las hojas al generar) y con la misma fecha de corte.
 
 **3. Publicar en GitHub**
 
